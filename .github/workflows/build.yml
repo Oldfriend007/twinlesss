@@ -1,0 +1,62 @@
+name: Build Twinless APK
+
+on:
+  push:
+    paths:
+      - 'onefold-source.zip'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unpack the app code
+        run: unzip -o onefold-source.zip -d .
+
+      - name: Refuse to build without the signing key
+        env:
+          KEY: ${{ secrets.TWINLESS_KEYSTORE_BASE64 }}
+          PASS: ${{ secrets.TWINLESS_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEY" ] || [ -z "$PASS" ]; then
+            echo "::error::Add the TWINLESS_KEYSTORE_BASE64 and TWINLESS_KEYSTORE_PASSWORD secrets first."
+            exit 1
+          fi
+          if ls app/*.keystore app/*.jks >/dev/null 2>&1; then
+            echo "::error::A key file is inside the zip. Remove it; the key must only live in Secrets."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Build and sign the APK
+        env:
+          KEY: ${{ secrets.TWINLESS_KEYSTORE_BASE64 }}
+          TWINLESS_KEYSTORE_PASSWORD: ${{ secrets.TWINLESS_KEYSTORE_PASSWORD }}
+        run: |
+          export TWINLESS_KEYSTORE="$RUNNER_TEMP/twinless.keystore"
+          echo "$KEY" | base64 -d > "$TWINLESS_KEYSTORE"
+          gradle assembleRelease --no-daemon
+          rm -f "$TWINLESS_KEYSTORE"
+
+      - name: Publish the APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          cp app/build/outputs/apk/release/app-release.apk "Twinless-$VERSION.apk"
+          gh release create "v$VERSION-build-${{ github.run_number }}" "Twinless-$VERSION.apk" \
+            --title "Twinless $VERSION" \
+            --notes "Download Twinless-$VERSION.apk below on your phone, open it, and allow installs if Android asks."
