@@ -1,0 +1,18 @@
+REPO ABOUT  (repo home page → ⚙️ next to "About")
+
+Description:
+Twinless — find every exact duplicate on your Android phone, keep one of each, and free up gigabytes. Byte-exact, 100% offline, nothing deleted without your say.
+
+Topics (add each one):
+android
+kotlin
+duplicate-finder
+duplicate-files
+storage-cleaner
+photo-organizer
+file-manager
+offline-first
+android-app
+
+Tick: "Releases" (shows on the home page)
+Untick: "Packages", "Deployments" (empty, they add clutter)
